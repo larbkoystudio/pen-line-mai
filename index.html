@@ -22,7 +22,7 @@
 body{margin:0;font-size:14px;overscroll-behavior:none}
 [hidden]{display:none!important}
 
-/* Layout: one-screen editor — tool strip on top, open canvas in the middle, palette + properties strip at the bottom */
+/* Layout: one-screen editor — slim top bar, full canvas with floating controls in the corners (color, layers, tools, zoom) */
 :root{
   --bg:#eef1f0; --panel:#fbfcfc; --line:#d8dfdc; --fg:#1b2422; --muted:#65736f;
   --accent:#0f766e; --accent-soft:#d6ece9; --stage:#e3e8e6; --dot:#c6d0cc; --danger:#b4412f;
@@ -42,16 +42,12 @@ body{background:var(--bg);color:var(--fg);font-family:var(--ui);overflow:hidden;
 .bar{display:flex;align-items:center;gap:6px;background:var(--panel);padding-block:6px;
   padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
 .top{border-bottom:1px solid var(--line)}
-.bottom{border-top:1px solid var(--line);flex-direction:column;align-items:stretch;gap:6px;padding-block:8px}
 .row{display:flex;align-items:center;gap:8px;min-width:0}
 .brand{font-weight:600;font-size:15px;letter-spacing:.01em;margin-right:6px;display:flex;align-items:center;gap:6px}
 .brand i{width:10px;height:10px;border-radius:50%;background:var(--accent);display:block}
 .group{display:flex;gap:2px}
 .spacer{flex:1}
 .sep{width:1px;height:22px;background:var(--line);flex:none}
-.toolrow{justify-content:space-between;max-width:440px;width:100%;margin:0 auto;gap:4px}
-.toolrow .btn{width:48px;height:44px;border-radius:12px}
-.toolrow .btn svg{width:23px;height:23px}
 .btn{appearance:none;border:0;background:transparent;color:var(--fg);width:42px;height:42px;border-radius:10px;display:grid;place-items:center;cursor:pointer;flex:none;font:inherit}
 .btn:hover{background:var(--bg)}
 .btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
@@ -79,12 +75,60 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .hdot{fill:var(--accent);stroke:var(--panel);pointer-events:all;cursor:pointer}
 .hline,.prev{stroke:var(--accent);fill:none;pointer-events:none}
 .hline{opacity:.6}
-.bezbar{position:absolute;left:max(12px, env(safe-area-inset-left, 0px));top:12px;right:150px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;pointer-events:none}
-.bezbar .tip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted);line-height:1.4;max-width:100%}
-.bezbar .txtbtn{pointer-events:all}
+.bezbar{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;max-width:100%}
+.bezbar .tip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted);line-height:1.4;max-width:100%;text-align:center}
+#shapes .lk *{pointer-events:none!important}
+
+/* floating controls on the canvas */
+.fab{position:absolute;z-index:5;appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:50%;width:52px;height:52px;display:grid;place-items:center;cursor:pointer;padding:0;box-shadow:0 2px 10px rgba(15,30,28,.12)}
+.fab svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.fab[aria-expanded="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.fab.color{top:12px;left:max(12px, env(safe-area-inset-left, 0px))}
+.fab.layers{top:12px;right:max(12px, env(safe-area-inset-right, 0px));border-radius:16px}
+.fab.cup{bottom:12px;left:max(12px, env(safe-area-inset-left, 0px));width:60px;height:60px;border-radius:18px}
+.fab.cup svg{width:30px;height:30px}
+.cring{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;box-shadow:0 0 0 1px rgba(0,0,0,.12) inset}
+.cdot{width:24px;height:24px;border-radius:50%;display:block;box-shadow:0 0 0 1px rgba(0,0,0,.14)}
+.cring.none-ring{background:var(--panel)!important;box-shadow:0 0 0 1px var(--line) inset}
+.badge{position:absolute;top:-5px;right:-5px;min-width:20px;height:20px;border-radius:10px;background:var(--accent);color:var(--panel);font-family:var(--mono);font-size:11px;display:grid;place-items:center;padding:0 5px;font-variant-numeric:tabular-nums}
+.cur-tool{position:absolute;right:-6px;bottom:-6px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:var(--panel);display:grid;place-items:center;border:2px solid var(--panel)}
+.fab .cur-tool svg{width:14px;height:14px;stroke-width:2.2}
+.dock{position:absolute;left:max(12px, env(safe-area-inset-left, 0px));right:max(12px, env(safe-area-inset-right, 0px));bottom:84px;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;z-index:4}
+.dock>*{pointer-events:auto}
+.ctx{display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;box-shadow:0 2px 10px rgba(15,30,28,.12);max-width:100%}
+.ctx .tfield{flex:1 1 100%;max-width:none;margin:2px 2px 4px}
+.pop{position:absolute;z-index:6;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 32px rgba(15,30,28,.2);padding:14px;display:flex;flex-direction:column;gap:12px;width:min(320px, calc(100% - 24px));max-height:calc(100% - 96px);overflow:auto}
+.pop-color{top:74px;left:max(12px, env(safe-area-inset-left, 0px))}
+.pop-layers{top:74px;right:max(12px, env(safe-area-inset-right, 0px))}
+.pop-tools{bottom:84px;left:max(12px, env(safe-area-inset-left, 0px))}
+.pop h4{margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.toolgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.tbtn{appearance:none;border:0;background:transparent;color:var(--fg);border-radius:12px;padding:10px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font:inherit;font-size:11.5px;line-height:1.25;text-align:center}
+.tbtn svg{width:25px;height:25px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tbtn:hover{background:var(--bg)}
+.tbtn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.pop .chips{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pop .chip{justify-content:flex-start;font-size:13px}
+.pop .swatches{flex-wrap:wrap;overflow:visible;padding:4px}
+.pop .wid{max-width:none;flex:none}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.phead strong{font-size:15px;font-weight:600}
+.llist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.lrow{display:flex;align-items:center;gap:2px;border-radius:10px;padding:2px;border:1px solid transparent}
+.lrow.on{background:var(--accent-soft);border-color:var(--accent)}
+.ib{appearance:none;border:0;background:transparent;color:var(--muted);width:38px;height:38px;border-radius:8px;display:grid;place-items:center;cursor:pointer;flex:none;padding:0}
+.ib svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.ib.alert{color:var(--danger)}
+.lname{flex:1;min-width:0;appearance:none;border:0;background:transparent;color:var(--fg);font:inherit;font-size:14px;text-align:left;padding:8px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+input.lname{background:var(--panel);border:1px solid var(--line);border-radius:8px;cursor:text;font-size:16px;padding:6px 8px}
+.lcount{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:20px;text-align:right;font-variant-numeric:tabular-nums}
+.lacts{display:flex;gap:6px;flex-wrap:wrap}
+.lacts .txtbtn{height:36px}
+.lacts .danger{color:var(--danger)}
+.toast{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--panel);font-size:13px;padding:8px 14px;border-radius:10px;z-index:7;max-width:calc(100% - 150px);text-align:center;pointer-events:none}
 .hnd[data-h="nw"],.hnd[data-h="se"]{cursor:nwse-resize}
 .hnd[data-h="ne"],.hnd[data-h="sw"]{cursor:nesw-resize}
-.zoom{position:absolute;right:max(12px, env(safe-area-inset-right, 0px));top:12px;display:flex;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:2px}
+.zoom{position:absolute;z-index:5;right:max(12px, env(safe-area-inset-right, 0px));bottom:12px;display:flex;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:3px;box-shadow:0 2px 10px rgba(15,30,28,.12)}
 .zoom .btn{width:38px;height:38px}
 .zoom .pct{font-family:var(--mono);font-size:12px;min-width:48px;text-align:center;color:var(--muted);background:none;border:0;cursor:pointer;height:38px;font-variant-numeric:tabular-nums}
 
@@ -99,7 +143,6 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .swatches::-webkit-scrollbar{display:none}
 .sw{appearance:none;width:32px;height:32px;border-radius:8px;border:1px solid rgba(0,0,0,.14);cursor:pointer;flex:none;padding:0}
 .sw.on{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
-.ctx{flex-wrap:wrap;row-gap:6px}
 .lbl{font-size:12px;color:var(--muted)}
 .wid{display:flex;align-items:center;gap:8px;flex:1 1 150px;max-width:260px;min-width:0}
 .wid input{flex:1;min-width:60px;accent-color:var(--accent);height:28px}
@@ -151,36 +194,54 @@ textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-ra
       <g id="shapes"></g>
       <g id="ui"></g>
     </svg>
-    <div class="bezbar" id="bezBar" hidden><span class="tip" id="bezTip"></span><button class="txtbtn primary" id="bezDone">เสร็จ</button></div>
+
+    <button class="fab color" id="colorBtn" aria-label="สี" aria-expanded="false" title="สี"><span class="cring" id="cRing"><span class="cdot" id="cDot"></span></span></button>
+    <button class="fab layers" id="layerBtn" aria-label="เลเยอร์" aria-expanded="false" title="เลเยอร์"><svg viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z"/><path d="M3 13.5l9 5 9-5"/></svg><span class="badge" id="layerCount">1</span></button>
+    <button class="fab cup" id="toolBtn" aria-label="เครื่องมือ" aria-expanded="false" title="เครื่องมือ"><svg viewBox="0 0 32 32"><path d="M7 15h18l-2.2 13H9.2z"/><path d="M11.5 15L9 6.5"/><path d="M9 6.5l-.6-2.8 2.2 1.9"/><path d="M16 15V8"/><path d="M14.5 8c0-2.2.6-4 1.5-5.2.9 1.2 1.5 3 1.5 5.2z"/><path d="M20.5 15l2.6-8"/><path d="M23.1 7l1-2.8.6 3"/></svg><span class="cur-tool" id="curTool"></span></button>
     <div class="zoom">
       <button class="btn" id="zOut" aria-label="ซูมออก"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
       <button class="pct" id="zFit" title="พอดีหน้าจอ">100%</button>
       <button class="btn" id="zIn" aria-label="ซูมเข้า"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
     </div>
-  </main>
 
-  <footer class="bar bottom">
-    <div class="row">
-      <div class="chips">
-        <button class="chip" id="chipFill" aria-pressed="true" title="สีพื้น"><span class="pv" id="pvFill"></span><span class="hide-sm">พื้น</span></button>
-        <button class="chip" id="chipStroke" aria-pressed="false" title="สีเส้น"><span class="pv ring" id="pvStroke"></span><span class="hide-sm">เส้น</span></button>
-      </div>
-      <div class="swatches" id="swatches" aria-label="จานสี"></div>
-      <button class="txtbtn" id="palBtn">จานสี</button>
-    </div>
-    <div class="row ctx">
-      <label class="wid"><span class="lbl">ความหนา</span><input type="range" id="sw" min="0" max="24" step="1"><span class="num" id="swNum">3</span></label>
-      <input class="tfield" id="tField" type="text" placeholder="พิมพ์ข้อความ" hidden aria-label="แก้ข้อความ">
-      <div class="spacer"></div>
-      <div class="group">
+    <div class="dock">
+      <div class="bezbar" id="bezBar" hidden><span class="tip" id="bezTip"></span><button class="txtbtn primary" id="bezDone">เสร็จ</button></div>
+      <div class="ctx" id="ctxBar" hidden>
+        <input class="tfield" id="tField" type="text" placeholder="พิมพ์ข้อความ" hidden aria-label="แก้ข้อความ">
         <button class="btn" id="dup" title="ทำสำเนา (Ctrl+D)" aria-label="ทำสำเนา"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>
         <button class="btn" id="front" title="ยกขึ้นบนสุด" aria-label="ยกขึ้นบนสุด"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="10" height="10" rx="1.5" fill="currentColor"/></svg></button>
         <button class="btn" id="back" title="ส่งลงล่างสุด" aria-label="ส่งลงล่างสุด"><svg viewBox="0 0 24 24"><rect x="10" y="10" width="10" height="10" rx="1.5"/><rect x="4" y="4" width="10" height="10" rx="1.5" fill="currentColor"/></svg></button>
         <button class="btn del" id="del" title="ลบ (Delete)" aria-label="ลบ"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button>
       </div>
     </div>
-    <div class="row toolrow" id="tools" role="toolbar" aria-label="เครื่องมือ"></div>
-  </footer>
+
+    <div class="pop pop-color" id="colorPop" hidden role="dialog" aria-label="สี">
+      <div class="chips">
+        <button class="chip" id="chipFill" aria-pressed="true"><span class="pv" id="pvFill"></span>สีพื้น</button>
+        <button class="chip" id="chipStroke" aria-pressed="false"><span class="pv ring" id="pvStroke"></span>สีเส้น</button>
+      </div>
+      <div class="swatches" id="swatches" aria-label="จานสี"></div>
+      <label class="wid"><span class="lbl">ความหนาเส้น</span><input type="range" id="sw" min="0" max="24" step="1"><span class="num" id="swNum">3</span></label>
+      <button class="txtbtn" id="palBtn">แก้ไขจานสี</button>
+    </div>
+
+    <div class="pop pop-tools" id="toolPop" hidden role="dialog" aria-label="เครื่องมือ">
+      <div class="toolgrid" id="tools" role="toolbar" aria-label="เครื่องมือ"></div>
+    </div>
+
+    <div class="pop pop-layers" id="layerPop" hidden role="dialog" aria-label="เลเยอร์">
+      <div class="phead"><strong>เลเยอร์</strong><button class="txtbtn primary" id="lAdd">+ เพิ่ม</button></div>
+      <ul class="llist" id="layerList"></ul>
+      <div class="lacts">
+        <button class="txtbtn" id="lUp">ขึ้น</button>
+        <button class="txtbtn" id="lDown">ลง</button>
+        <button class="txtbtn danger" id="lDel">ลบเลเยอร์</button>
+      </div>
+      <p class="hint">วัตถุใหม่จะอยู่ในเลเยอร์ที่เลือก แตะชื่อเพื่อเปลี่ยนชื่อ</p>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+  </main>
 </div>
 
 <div class="scrim" id="palDlg" hidden>
@@ -266,12 +327,19 @@ function sample(){return [
 ]}
 
 let palette=load('penline.pal')||PRESETS[0].c.slice();
-let shapes=load('penline.doc')||sample();
+const docRaw=load('penline.doc');
+let shapes=Array.isArray(docRaw)?docRaw:(docRaw&&docRaw.shapes)||sample();
+let layers=(docRaw&&!Array.isArray(docRaw)&&docRaw.layers&&docRaw.layers.length)?docRaw.layers:[{id:'L1',name:'เลเยอร์ 1',visible:true,locked:false}];
+shapes.forEach(s=>{if(!layers.some(l=>l.id===s.layer))s.layer=layers[0].id});
+let activeLayer=layers[layers.length-1].id;
+const snap=()=>JSON.stringify({shapes,layers});
+const saveDoc=()=>store('penline.doc',{shapes,layers});
+function restore(j){const d=JSON.parse(j);shapes=d.shapes;layers=d.layers;if(!layers.some(l=>l.id===activeLayer))activeLayer=layers[layers.length-1].id}
 let style=load('penline.style')||{fill:'#f4a261',stroke:'#1f2933',sw:3};
 let bezId=null, bezHover=null, selNode=null, lastTap={i:-1,t:0};
 let target='fill', tool='select', selId=null, drag=null, spaceDown=false;
 let vb={x:-40,y:-40,w:W+80,h:H+80};
-let hist=[JSON.stringify(shapes)], hi=0;
+let hist=[snap()], hi=0;
 
 /* ---------- rendering ---------- */
 function pathD(p){
@@ -309,10 +377,12 @@ function hitFor(s,K){
 }
 function render(){
   const K=k();
-  G.innerHTML=shapes.map(s=>`<g data-id="${s.id}">${markup(s)}${hitFor(s,K)}</g>`).join('');
+  const sc=cur();if(sc){const L=layerOf(sc);if(!L||!L.visible||L.locked){selId=null;selNode=null}}
+  G.innerHTML=layers.map(L=>L.visible?`<g data-layer="${L.id}"${L.locked?' class="lk"':''}>${shapes.filter(s=>s.layer===L.id).map(s=>`<g data-id="${s.id}">${markup(s)}${hitFor(s,K)}</g>`).join('')}</g>`:'').join('');
   drawSel();
 }
 const cur=()=>shapes.find(s=>s.id===selId)||null;
+const layerOf=s=>layers.find(l=>l.id===s.layer);
 function bboxOf(s){const el=G.querySelector(`[data-id="${s.id}"] > :first-child`);if(!el)return null;const b=el.getBBox();return {x:b.x,y:b.y,w:b.width,h:b.height}}
 function drawSel(){
   const s=cur();if(!s){UI.innerHTML='';return}
@@ -349,12 +419,12 @@ function pt(e){const P=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.get
 
 /* ---------- history ---------- */
 function commit(){
-  hist=hist.slice(0,hi+1);hist.push(JSON.stringify(shapes));
+  hist=hist.slice(0,hi+1);hist.push(snap());
   if(hist.length>120)hist.shift();hi=hist.length-1;
-  store('penline.doc',shapes);sync();
+  saveDoc();sync();
 }
-function undo(){bezId=null;bezHover=null;if(hi>0){hi--;shapes=JSON.parse(hist[hi]);if(!cur())selId=null;store('penline.doc',shapes);render();sync()}}
-function redo(){bezId=null;bezHover=null;if(hi<hist.length-1){hi++;shapes=JSON.parse(hist[hi]);if(!cur())selId=null;store('penline.doc',shapes);render();sync()}}
+function undo(){bezId=null;bezHover=null;if(hi>0){hi--;restore(hist[hi]);if(!cur())selId=null;saveDoc();render();sync()}}
+function redo(){bezId=null;bezHover=null;if(hi<hist.length-1){hi++;restore(hist[hi]);if(!cur())selId=null;saveDoc();render();sync()}}
 
 /* ---------- geometry ---------- */
 function mapShape(o,f,ss=1){
@@ -393,6 +463,7 @@ function movePinch(){
 }
 svg.addEventListener('pointerdown',e=>{
   if(e.button===2)return;
+  if(anyPop()){closePops();return}
   svg.setPointerCapture(e.pointerId);
   ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ptrs.size===2){startPinch();return}
@@ -414,8 +485,9 @@ svg.addEventListener('pointerdown',e=>{
     if(g){select(g.dataset.id);drag={mode:'move',start:p,orig:clone(cur())};return}
     select(null);drag={mode:'pan',cx:e.clientX,cy:e.clientY,vb:{...vb},K:k()};return;
   }
+  if(!(tool==='bez'&&bezId)&&!layerOK())return;
   if(tool==='text'){
-    const s={id:uid(),type:'text',x:p.x,y:p.y,text:'ข้อความ',size:40,fill:style.fill==='none'?'#1f2933':style.fill,stroke:'none',sw:0};
+    const s={id:uid(),layer:activeLayer,type:'text',x:p.x,y:p.y,text:'ข้อความ',size:40,fill:style.fill==='none'?'#1f2933':style.fill,stroke:'none',sw:0};
     shapes.push(s);selId=s.id;setTool('select');render();commit();
     const tf=$('#tField');tf.focus();tf.select();return;
   }
@@ -429,12 +501,12 @@ svg.addEventListener('pointerdown',e=>{
       if(b.nodes.length>=2&&Math.hypot(p.x-l.x,p.y-l.y)<near){finishBez();return}
       b.nodes.push({x:p.x,y:p.y,hi:null,ho:null});
     }else{
-      b={id:uid(),type:'bez',nodes:[{x:p.x,y:p.y,hi:null,ho:null}],closed:false,fill:'none',stroke:lineCol,sw:Math.max(1,style.sw)};
+      b={id:uid(),layer:activeLayer,type:'bez',nodes:[{x:p.x,y:p.y,hi:null,ho:null}],closed:false,fill:'none',stroke:lineCol,sw:Math.max(1,style.sw)};
       shapes.push(b);bezId=b.id;selId=b.id;
     }
     bezHover=null;drag={mode:'bezpull',start:p};render();sync();return;
   }
-  const s={id:uid(),type:tool,fill:style.fill,stroke:style.stroke,sw:style.sw};
+  const s={id:uid(),layer:activeLayer,type:tool,fill:style.fill,stroke:style.stroke,sw:style.sw};
   if(tool==='rect'||tool==='ellipse'){Object.assign(s,{x:p.x,y:p.y,w:0,h:0})}
   if(tool==='line'){Object.assign(s,{x1:p.x,y1:p.y,x2:p.x,y2:p.y,fill:'none',stroke:lineCol,sw:Math.max(1,style.sw)})}
   if(tool==='pen'){Object.assign(s,{pts:[[p.x,p.y]],fill:'none',stroke:lineCol,sw:Math.max(1,style.sw)})}
@@ -521,7 +593,7 @@ svg.addEventListener('pointercancel',endDrag);
 svg.addEventListener('wheel',e=>{e.preventDefault();const p=pt(e);zoomAt(e.deltaY>0?1.12:1/1.12,p.x,p.y)},{passive:false});
 
 /* ---------- selection & actions ---------- */
-function select(id){if(id!==selId)selNode=null;selId=id;drawSel();sync()}
+function select(id){if(id!==selId)selNode=null;selId=id;const s=cur();if(s)activeLayer=s.layer;drawSel();sync()}
 function finishBez(){
   const s=shapes.find(q=>q.id===bezId);bezId=null;bezHover=null;
   if(s&&s.nodes.length<2){shapes=shapes.filter(q=>q!==s);selId=null}
@@ -588,14 +660,19 @@ $('#tField').addEventListener('input',e=>{const s=cur();if(s&&s.type==='text'){s
 $('#tField').addEventListener('change',()=>commit());
 
 function sync(){
-  document.querySelectorAll('#tools .btn').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===tool));
+  document.querySelectorAll('#tools [data-t]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===tool));
+  const T=TOOLS.find(t=>t[0]===tool);$('#curTool').innerHTML=`<svg viewBox="0 0 24 24">${T[2]}</svg>`;
   const s=cur(),src=s||style;
   setPv($('#pvFill'),src.fill);setPv($('#pvStroke'),src.stroke);
+  const ring=$('#cRing'),dot=$('#cDot');
+  ring.classList.toggle('none-ring',src.stroke==='none');ring.style.background=src.stroke==='none'?'':src.stroke;
+  dot.classList.toggle('none-mark',src.fill==='none');dot.style.background=src.fill==='none'?'':src.fill;
   $('#chipFill').setAttribute('aria-pressed',target==='fill');$('#chipStroke').setAttribute('aria-pressed',target==='stroke');
   $('#sw').value=src.stroke==='none'?0:src.sw;$('#swNum').textContent=$('#sw').value;
   const tf=$('#tField');const isText=!!s&&s.type==='text';tf.hidden=!isText;
   if(isText&&document.activeElement!==tf)tf.value=s.text;
   ['del','dup','front','back'].forEach(n=>$('#'+n).disabled=!s||!!bezId);
+  $('#ctxBar').hidden=!s||!!bezId;
   const editing=!bezId&&s&&s.type==='bez'&&tool==='select';
   $('#bezBar').hidden=!(bezId||(tool==='bez')||editing);
   $('#bezDone').hidden=!bezId;
@@ -604,16 +681,81 @@ function sync(){
     :'แตะเพื่อวางจุดแรก ลากเพื่อดึงก้านโค้ง';
   $('#undo').disabled=hi<=0;$('#redo').disabled=hi>=hist.length-1;
   renderSwatches();
+  renderLayers();
 }
 
 /* ---------- tools ---------- */
-$('#tools').innerHTML=TOOLS.map(([t,label,ic])=>`<button class="btn" data-t="${t}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24">${ic}</svg></button>`).join('');
-$('#tools').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b)setTool(b.dataset.t)});
+$('#tools').innerHTML=TOOLS.map(([t,label,ic])=>`<button class="tbtn" data-t="${t}" title="${label}"><svg viewBox="0 0 24 24">${ic}</svg><span>${label.replace(/\s*\(.\)$/,'')}</span></button>`).join('');
+$('#tools').addEventListener('click',e=>{const b=e.target.closest('[data-t]');if(b){setTool(b.dataset.t);closePops()}});
+
+/* ---------- popovers ---------- */
+const POPS=[['#colorBtn','#colorPop'],['#toolBtn','#toolPop'],['#layerBtn','#layerPop']];
+const anyPop=()=>POPS.some(([,p])=>!$(p).hidden);
+function closePops(){POPS.forEach(([b,p])=>{$(p).hidden=true;$(b).setAttribute('aria-expanded','false')});resetLDel()}
+POPS.forEach(([b,p])=>$(b).addEventListener('click',()=>{const open=$(p).hidden;closePops();if(open){$(p).hidden=false;$(b).setAttribute('aria-expanded','true');sync()}}));
+let toastT=null;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2200)}
+
+/* ---------- layers ---------- */
+const EYE='<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>';
+const EYE_OFF='<path d="M3 3l18 18"/><path d="M10.6 6.1A10 10 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3 3.6M6.6 6.6C3.8 8.3 2 12 2 12s3.5 6 10 6a9.6 9.6 0 0 0 5.4-1.6"/>';
+const LOCK='<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';
+const UNLOCK='<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/>';
+function layerOK(){
+  const L=layers.find(l=>l.id===activeLayer);if(!L)return false;
+  if(!L.visible){toast(`"${L.name}" ถูกซ่อนอยู่ แตะรูปตาในเลเยอร์เพื่อแสดง`);return false}
+  if(L.locked){toast(`"${L.name}" ถูกล็อกอยู่`);return false}
+  return true;
+}
+function renderLayers(){
+  $('#layerCount').textContent=layers.length;
+  if($('#layerPop').hidden)return;
+  if(document.activeElement&&document.activeElement.matches('input.lname'))return;
+  $('#layerList').innerHTML=layers.slice().reverse().map(L=>{
+    const on=L.id===activeLayer,n=shapes.filter(s=>s.layer===L.id).length;
+    return `<li class="lrow${on?' on':''}" data-l="${L.id}">
+      <button class="ib${L.visible?'':' alert'}" data-act="vis" aria-label="${L.visible?'ซ่อนเลเยอร์':'แสดงเลเยอร์'}"><svg viewBox="0 0 24 24">${L.visible?EYE:EYE_OFF}</svg></button>
+      ${on?`<input class="lname" id="lName" value="${esc(L.name)}" aria-label="ชื่อเลเยอร์">`:`<button class="lname" data-act="pick">${esc(L.name)}</button>`}
+      <span class="lcount">${n}</span>
+      <button class="ib${L.locked?' alert':''}" data-act="lock" aria-label="${L.locked?'ปลดล็อก':'ล็อก'}"><svg viewBox="0 0 24 24">${L.locked?LOCK:UNLOCK}</svg></button>
+    </li>`}).join('');
+  const i=layers.findIndex(l=>l.id===activeLayer);
+  $('#lUp').disabled=i>=layers.length-1;$('#lDown').disabled=i<=0;$('#lDel').disabled=layers.length<2;
+}
+$('#layerList').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'),row=e.target.closest('[data-l]');if(!b||!row)return;
+  const L=layers.find(l=>l.id===row.dataset.l);if(!L)return;
+  if(b.dataset.act==='pick'){activeLayer=L.id;selId=null;selNode=null;render();sync();return}
+  if(b.dataset.act==='vis')L.visible=!L.visible;
+  if(b.dataset.act==='lock')L.locked=!L.locked;
+  render();commit();
+});
+$('#layerList').addEventListener('change',e=>{if(e.target.id==='lName'){const L=layers.find(l=>l.id===activeLayer);const v=e.target.value.trim();if(L&&v){L.name=v}e.target.blur();commit()}});
+$('#layerList').addEventListener('keydown',e=>{if(e.target.id==='lName'&&e.key==='Enter')e.target.blur()});
+$('#lAdd').onclick=()=>{
+  let n=layers.length+1;while(layers.some(l=>l.name==='เลเยอร์ '+n))n++;
+  const L={id:'L'+uid(),name:'เลเยอร์ '+n,visible:true,locked:false};
+  const i=layers.findIndex(l=>l.id===activeLayer);layers.splice(i+1,0,L);activeLayer=L.id;selId=null;
+  render();commit();
+};
+function moveLayer(d){const i=layers.findIndex(l=>l.id===activeLayer),j=i+d;if(j<0||j>=layers.length)return;[layers[i],layers[j]]=[layers[j],layers[i]];render();commit()}
+$('#lUp').onclick=()=>moveLayer(1);$('#lDown').onclick=()=>moveLayer(-1);
+let lDelArmed=null;
+function resetLDel(){clearTimeout(lDelArmed);lDelArmed=null;const b=$('#lDel');if(b)b.textContent='ลบเลเยอร์'}
+$('#lDel').onclick=()=>{
+  if(layers.length<2)return;
+  const L=layers.find(l=>l.id===activeLayer),n=shapes.filter(s=>s.layer===L.id).length;
+  if(!lDelArmed){$('#lDel').textContent=n?`ลบพร้อม ${n} วัตถุ? แตะอีกครั้ง`:'แตะอีกครั้งเพื่อลบ';lDelArmed=setTimeout(resetLDel,3000);return}
+  resetLDel();
+  const i=layers.indexOf(L);layers.splice(i,1);shapes=shapes.filter(s=>s.layer!==L.id);
+  activeLayer=(layers[i]||layers[i-1]).id;selId=null;render();commit();
+};
 
 /* ---------- keyboard ---------- */
 window.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea'))return;
   if(!$('#palDlg').hidden||!$('#fileDlg').hidden){if(e.key==='Escape')closeDlg();return}
+  if(anyPop()&&e.key==='Escape'){closePops();return}
   const mod=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
   if(mod&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(mod&&key==='y'){e.preventDefault();redo();return}
@@ -649,10 +791,10 @@ $('#hexApply').onclick=()=>{
   if(!uniq.length){$('#hexMsg').textContent='ไม่พบรหัสสี ลองใส่แบบ #2a9d8f';return}
   palette=uniq;savePal();$('#hexMsg').textContent=`ใช้ ${uniq.length} สีแล้ว`;
 };
-$('#palBtn').onclick=()=>{renderPalDlg();$('#hexMsg').textContent='';openDlg('#palDlg')};
+$('#palBtn').onclick=()=>{closePops();renderPalDlg();$('#hexMsg').textContent='';openDlg('#palDlg')};
 
 /* ---------- export ---------- */
-function exportSVG(){return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${shapes.map(markup).join('')}</svg>`}
+function exportSVG(){return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${layers.filter(L=>L.visible).map(L=>`<g data-layer="${esc(L.name)}">${shapes.filter(s=>s.layer===L.id).map(markup).join('')}</g>`).join('')}</svg>`}
 $('#fileBtn').onclick=()=>{
   const s=exportSVG();$('#svgOut').value=s;$('#copyMsg').textContent='';
   const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=W*2;c.height=H*2;const x=c.getContext('2d');x.scale(2,2);x.drawImage(img,0,0);try{$('#pngOut').src=c.toDataURL('image/png')}catch(e){$('#pngOut').src=img.src}};
@@ -668,7 +810,7 @@ let newArmed=null;
 function resetNew(){clearTimeout(newArmed);newArmed=null;$('#newDoc').textContent='หน้าใหม่'}
 $('#newDoc').onclick=()=>{
   if(!newArmed){$('#newDoc').textContent='แตะอีกครั้งเพื่อลบงานทั้งหมด';newArmed=setTimeout(resetNew,3000);return}
-  resetNew();shapes=[];selId=null;render();commit();closeDlg();
+  resetNew();shapes=[];layers=[{id:'L'+uid(),name:'เลเยอร์ 1',visible:true,locked:false}];activeLayer=layers[0].id;selId=null;render();commit();closeDlg();
 };
 
 window.addEventListener('resize',()=>setVB());
