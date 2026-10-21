@@ -74,6 +74,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 #shapes text{white-space:pre}
 .selbox{fill:none;stroke:var(--accent);pointer-events:none}
 .hnd{fill:var(--panel);stroke:var(--accent);pointer-events:all}
+.node{fill:var(--panel);stroke:var(--accent);pointer-events:all;cursor:move}
+.node.on,.node.first{fill:var(--accent)}
+.hdot{fill:var(--accent);stroke:var(--panel);pointer-events:all;cursor:pointer}
+.hline,.prev{stroke:var(--accent);fill:none;pointer-events:none}
+.hline{opacity:.6}
+.bezbar{position:absolute;left:max(12px, env(safe-area-inset-left, 0px));top:12px;right:150px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;pointer-events:none}
+.bezbar .tip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted);line-height:1.4;max-width:100%}
+.bezbar .txtbtn{pointer-events:all}
 .hnd[data-h="nw"],.hnd[data-h="se"]{cursor:nwse-resize}
 .hnd[data-h="ne"],.hnd[data-h="sw"]{cursor:nesw-resize}
 .zoom{position:absolute;right:max(12px, env(safe-area-inset-right, 0px));top:12px;display:flex;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:2px}
@@ -143,6 +151,7 @@ textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-ra
       <g id="shapes"></g>
       <g id="ui"></g>
     </svg>
+    <div class="bezbar" id="bezBar" hidden><span class="tip" id="bezTip"></span><button class="txtbtn primary" id="bezDone">เสร็จ</button></div>
     <div class="zoom">
       <button class="btn" id="zOut" aria-label="ซูมออก"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
       <button class="pct" id="zFit" title="พอดีหน้าจอ">100%</button>
@@ -233,10 +242,11 @@ const TOOLS=[
   ['rect','สี่เหลี่ยม (R)','<rect x="4" y="5" width="16" height="14" rx="1.5"/>'],
   ['ellipse','วงรี (E)','<ellipse cx="12" cy="12" rx="8.5" ry="6.5"/>'],
   ['line','เส้นตรง (L)','<path d="M5 19L19 5"/>'],
+  ['bez','ปากกาเส้นโค้ง (B)','<path d="M12 3l5 7-2 8H9l-2-8z"/><path d="M12 3v7.5"/><circle cx="12" cy="12" r="1.2"/>'],
   ['pen','ดินสอ (P)','<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>'],
   ['text','ข้อความ (T)','<path d="M6 6h12M12 6v13"/>'],
 ];
-const KEYS={v:'select',r:'rect',e:'ellipse',l:'line',p:'pen',t:'text'};
+const KEYS={b:'bez',v:'select',r:'rect',e:'ellipse',l:'line',p:'pen',t:'text'};
 
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -258,6 +268,7 @@ function sample(){return [
 let palette=load('penline.pal')||PRESETS[0].c.slice();
 let shapes=load('penline.doc')||sample();
 let style=load('penline.style')||{fill:'#f4a261',stroke:'#1f2933',sw:3};
+let bezId=null, bezHover=null, selNode=null, lastTap={i:-1,t:0};
 let target='fill', tool='select', selId=null, drag=null, spaceDown=false;
 let vb={x:-40,y:-40,w:W+80,h:H+80};
 let hist=[JSON.stringify(shapes)], hi=0;
@@ -269,6 +280,15 @@ function pathD(p){
   for(let i=1;i<p.length-1;i++){const mx=(p[i][0]+p[i+1][0])/2,my=(p[i][1]+p[i+1][1])/2;d+=` Q${r(p[i][0])} ${r(p[i][1])} ${r(mx)} ${r(my)}`}
   const l=p[p.length-1];return d+` L${r(l[0])} ${r(l[1])}`;
 }
+function bezD(s){
+  const n=s.nodes;if(!n||!n.length)return '';
+  const P=a=>r(a[0])+' '+r(a[1]);
+  const seg=(a,b)=>` C${P(a.ho||[a.x,a.y])} ${P(b.hi||[b.x,b.y])} ${P([b.x,b.y])}`;
+  let d='M'+P([n[0].x,n[0].y]);
+  for(let i=1;i<n.length;i++)d+=seg(n[i-1],n[i]);
+  if(s.closed&&n.length>1)d+=seg(n[n.length-1],n[0])+' Z';
+  return d;
+}
 function paint(s){const sw=s.stroke==='none'?0:s.sw;return `fill="${s.fill}" stroke="${s.stroke}" stroke-width="${sw}"`}
 function markup(s){
   switch(s.type){
@@ -276,6 +296,7 @@ function markup(s){
     case 'ellipse':return `<ellipse cx="${r(s.x+s.w/2)}" cy="${r(s.y+s.h/2)}" rx="${r(s.w/2)}" ry="${r(s.h/2)}" ${paint(s)}/>`;
     case 'line':return `<line x1="${r(s.x1)}" y1="${r(s.y1)}" x2="${r(s.x2)}" y2="${r(s.y2)}" fill="none" stroke="${s.stroke}" stroke-width="${s.sw}" stroke-linecap="round"/>`;
     case 'pen':return `<path d="${pathD(s.pts)}" ${paint(s)} stroke-linecap="round" stroke-linejoin="round"/>`;
+    case 'bez':return `<path d="${bezD(s)||'M0 0'}" ${paint(s)} stroke-linecap="round" stroke-linejoin="round"/>`;
     case 'text':return `<text x="${r(s.x)}" y="${r(s.y)}" font-size="${r(s.size)}" font-family="${FONT}" font-weight="600" ${paint(s)} paint-order="stroke">${esc(s.text)}</text>`;
   }
 }
@@ -283,6 +304,7 @@ function hitFor(s,K){
   const w=Math.max((COARSE?28:16)*K,s.sw);
   if(s.type==='line')return `<line x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}" stroke="transparent" stroke-width="${w}" stroke-linecap="round"/>`;
   if(s.type==='pen')return `<path d="${pathD(s.pts)}" fill="none" stroke="transparent" stroke-width="${w}" stroke-linecap="round"/>`;
+  if(s.type==='bez')return `<path d="${bezD(s)||'M0 0'}" fill="none" stroke="transparent" stroke-width="${w}" stroke-linecap="round"/>`;
   return '';
 }
 function render(){
@@ -296,9 +318,22 @@ function drawSel(){
   const s=cur();if(!s){UI.innerHTML='';return}
   const b=bboxOf(s);if(!b){UI.innerHTML='';return}
   const K=k(),p=6*K,hs=(COARSE?22:11)*K,x=b.x-p,y=b.y-p,w=b.w+2*p,h=b.h+2*p;
-  let o=`<rect class="selbox" x="${x}" y="${y}" width="${w}" height="${h}" stroke-width="${1.4*K}" stroke-dasharray="${5*K} ${3*K}"/>`;
-  [['nw',x,y],['ne',x+w,y],['sw',x,y+h],['se',x+w,y+h]].forEach(([n,cx,cy])=>{
-    o+=`<rect class="hnd" data-h="${n}" x="${cx-hs/2}" y="${cy-hs/2}" width="${hs}" height="${hs}" rx="${2.5*K}" stroke-width="${1.5*K}"/>`});
+  const drawing=bezId===s.id;
+  let o='';
+  if(!drawing){
+    o+=`<rect class="selbox" x="${x}" y="${y}" width="${w}" height="${h}" stroke-width="${1.4*K}" stroke-dasharray="${5*K} ${3*K}"/>`;
+    [['nw',x,y],['ne',x+w,y],['sw',x,y+h],['se',x+w,y+h]].forEach(([n,cx,cy])=>{
+      o+=`<rect class="hnd" data-h="${n}" x="${cx-hs/2}" y="${cy-hs/2}" width="${hs}" height="${hs}" rx="${2.5*K}" stroke-width="${1.5*K}"/>`});
+  }
+  if(s.type==='bez'&&(tool==='select'||drawing)){
+    const ns=(COARSE?18:9)*K,hr=(COARSE?9:4.5)*K,N=s.nodes;
+    if(drawing&&bezHover&&N.length){const l=N[N.length-1];
+      o+=`<path class="prev" d="M${l.x} ${l.y} C${(l.ho||[l.x,l.y]).join(' ')} ${bezHover.x} ${bezHover.y} ${bezHover.x} ${bezHover.y}" stroke-width="${K}" stroke-dasharray="${4*K} ${3*K}"/>`}
+    N.forEach((n,i)=>['hi','ho'].forEach(wh=>{const q=n[wh];if(!q)return;
+      o+=`<line class="hline" x1="${n.x}" y1="${n.y}" x2="${q[0]}" y2="${q[1]}" stroke-width="${K}"/><circle class="hdot" data-hd="${i}:${wh}" cx="${q[0]}" cy="${q[1]}" r="${hr}" stroke-width="${1.5*K}"/>`}));
+    N.forEach((n,i)=>{const big=drawing&&i===0&&N.length>1?1.35:1,z=ns*big;
+      o+=`<rect class="node${i===selNode?' on':''}${drawing&&i===0?' first':''}" data-node="${i}" x="${n.x-z/2}" y="${n.y-z/2}" width="${z}" height="${z}" rx="${(i===0&&drawing?z/2:1.5*K)}" stroke-width="${1.5*K}"/>`});
+  }
   UI.innerHTML=o;
 }
 
@@ -318,8 +353,8 @@ function commit(){
   if(hist.length>120)hist.shift();hi=hist.length-1;
   store('penline.doc',shapes);sync();
 }
-function undo(){if(hi>0){hi--;shapes=JSON.parse(hist[hi]);if(!cur())selId=null;store('penline.doc',shapes);render();sync()}}
-function redo(){if(hi<hist.length-1){hi++;shapes=JSON.parse(hist[hi]);if(!cur())selId=null;store('penline.doc',shapes);render();sync()}}
+function undo(){bezId=null;bezHover=null;if(hi>0){hi--;shapes=JSON.parse(hist[hi]);if(!cur())selId=null;store('penline.doc',shapes);render();sync()}}
+function redo(){bezId=null;bezHover=null;if(hi<hist.length-1){hi++;shapes=JSON.parse(hist[hi]);if(!cur())selId=null;store('penline.doc',shapes);render();sync()}}
 
 /* ---------- geometry ---------- */
 function mapShape(o,f,ss=1){
@@ -327,6 +362,7 @@ function mapShape(o,f,ss=1){
   if(o.type==='rect'||o.type==='ellipse'){const [a,b]=f(o.x,o.y),[c,d]=f(o.x+o.w,o.y+o.h);s.x=Math.min(a,c);s.y=Math.min(b,d);s.w=Math.abs(c-a);s.h=Math.abs(d-b)}
   else if(o.type==='line'){[s.x1,s.y1]=f(o.x1,o.y1);[s.x2,s.y2]=f(o.x2,o.y2)}
   else if(o.type==='pen'){s.pts=o.pts.map(p=>f(p[0],p[1]))}
+  else if(o.type==='bez'){s.nodes=o.nodes.map(n=>{const [x,y]=f(n.x,n.y);return {x,y,hi:n.hi?f(n.hi[0],n.hi[1]):null,ho:n.ho?f(n.ho[0],n.ho[1]):null}})}
   else if(o.type==='text'){[s.x,s.y]=f(o.x,o.y);s.size=Math.max(6,o.size*ss)}
   return s;
 }
@@ -337,7 +373,8 @@ const ptrs=new Map();
 function startPinch(){
   if(drag){
     if(drag.mode==='draw'){shapes=shapes.filter(q=>q.id!==selId);selId=null}
-    else if((drag.mode==='move'||drag.mode==='resize')&&drag.orig){replace(drag.orig)}
+    else if(drag.mode==='bezpull'){const s=shapes.find(q=>q.id===bezId);if(s){s.nodes.pop();if(!s.nodes.length){shapes=shapes.filter(q=>q!==s);bezId=null;selId=null}}}
+    else if(['move','resize','node','handle'].includes(drag.mode)&&drag.orig){replace(drag.orig)}
   }
   const [a,b]=[...ptrs.values()],R=svg.getBoundingClientRect(),K=k();
   const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
@@ -363,6 +400,14 @@ svg.addEventListener('pointerdown',e=>{
   const p=pt(e);
   if(e.button===1||spaceDown){drag={mode:'pan',cx:e.clientX,cy:e.clientY,vb:{...vb},K:k()};return}
   if(tool==='select'){
+    const hd=e.target.closest('[data-hd]');
+    if(hd&&cur()){const [i,wh]=hd.dataset.hd.split(':');drag={mode:'handle',i:+i,wh,orig:clone(cur())};return}
+    const nd=e.target.closest('[data-node]');
+    if(nd&&cur()){
+      const i=+nd.dataset.node,now=Date.now();
+      if(lastTap.i===i&&now-lastTap.t<350){toggleSmooth(i);lastTap={i:-1,t:0};return}
+      lastTap={i,t:now};selNode=i;drag={mode:'node',i,start:p,orig:clone(cur())};drawSel();return;
+    }
     const h=e.target.closest('[data-h]');
     if(h&&cur()){drag={mode:'resize',h:h.dataset.h,ob:bboxOf(cur()),orig:clone(cur())};return}
     const g=e.target.closest('[data-id]');
@@ -375,6 +420,20 @@ svg.addEventListener('pointerdown',e=>{
     const tf=$('#tField');tf.focus();tf.select();return;
   }
   const lineCol=style.stroke==='none'?(style.fill==='none'?'#1f2933':style.fill):style.stroke;
+  if(tool==='bez'){
+    let b=bezId&&shapes.find(q=>q.id===bezId);
+    const near=(COARSE?22:12)*k();
+    if(b){
+      const f=b.nodes[0],l=b.nodes[b.nodes.length-1];
+      if(b.nodes.length>=2&&Math.hypot(p.x-f.x,p.y-f.y)<near){b.closed=true;if(style.fill!=='none')b.fill=style.fill;finishBez();return}
+      if(b.nodes.length>=2&&Math.hypot(p.x-l.x,p.y-l.y)<near){finishBez();return}
+      b.nodes.push({x:p.x,y:p.y,hi:null,ho:null});
+    }else{
+      b={id:uid(),type:'bez',nodes:[{x:p.x,y:p.y,hi:null,ho:null}],closed:false,fill:'none',stroke:lineCol,sw:Math.max(1,style.sw)};
+      shapes.push(b);bezId=b.id;selId=b.id;
+    }
+    bezHover=null;drag={mode:'bezpull',start:p};render();sync();return;
+  }
   const s={id:uid(),type:tool,fill:style.fill,stroke:style.stroke,sw:style.sw};
   if(tool==='rect'||tool==='ellipse'){Object.assign(s,{x:p.x,y:p.y,w:0,h:0})}
   if(tool==='line'){Object.assign(s,{x1:p.x,y1:p.y,x2:p.x,y2:p.y,fill:'none',stroke:lineCol,sw:Math.max(1,style.sw)})}
@@ -383,10 +442,30 @@ svg.addEventListener('pointerdown',e=>{
 });
 svg.addEventListener('pointermove',e=>{
   if(ptrs.has(e.pointerId))ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(!drag)return;
+  if(!drag){if(bezId&&e.pointerType==='mouse'){bezHover=pt(e);drawSel()}return}
   if(drag.mode==='pinch'){if(ptrs.size>=2)movePinch();return}
   if(drag.mode==='pan'){vb.x=drag.vb.x-(e.clientX-drag.cx)*drag.K;vb.y=drag.vb.y-(e.clientY-drag.cy)*drag.K;svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);return}
   const p=pt(e),s=cur();if(!s)return;
+  if(drag.mode==='bezpull'){
+    const n=s.nodes[s.nodes.length-1];
+    if(Math.hypot(p.x-drag.start.x,p.y-drag.start.y)>3*k()){n.ho=[p.x,p.y];n.hi=[2*n.x-p.x,2*n.y-p.y];render()}
+    return;
+  }
+  if(drag.mode==='node'){
+    const dx=p.x-drag.start.x,dy=p.y-drag.start.y,o=drag.orig.nodes[drag.i],n=s.nodes[drag.i];
+    if(Math.abs(dx)+Math.abs(dy)>0.5)drag.changed=true;
+    n.x=o.x+dx;n.y=o.y+dy;n.hi=o.hi&&[o.hi[0]+dx,o.hi[1]+dy];n.ho=o.ho&&[o.ho[0]+dx,o.ho[1]+dy];
+    render();return;
+  }
+  if(drag.mode==='handle'){
+    const n=s.nodes[drag.i],o=drag.orig.nodes[drag.i],other=drag.wh==='hi'?'ho':'hi';
+    drag.changed=true;n[drag.wh]=[p.x,p.y];
+    if(o[other]&&!e.altKey){
+      const len=Math.hypot(o[other][0]-o.x,o[other][1]-o.y),dx=n.x-p.x,dy=n.y-p.y,d=Math.hypot(dx,dy)||1;
+      n[other]=[n.x+dx/d*len,n.y+dy/d*len];
+    }
+    render();return;
+  }
   if(drag.mode==='move'){
     const dx=p.x-drag.start.x,dy=p.y-drag.start.y;
     if(Math.abs(dx)+Math.abs(dy)>0.5)drag.changed=true;
@@ -428,7 +507,8 @@ function endDrag(e){
   if(drag.mode==='pinch'){if(ptrs.size===0){drag=null;setVB()}return}
   const d=drag;drag=null;
   if(d.mode==='pan'){setVB();return}
-  if((d.mode==='move'||d.mode==='resize')&&d.changed){commit();return}
+  if(['move','resize','node','handle'].includes(d.mode)&&d.changed){commit();return}
+  if(d.mode==='bezpull'){render();sync();return}
   if(d.mode==='draw'){
     const s=cur();if(!s)return;
     if((s.type==='rect'||s.type==='ellipse')&&s.w<3&&s.h<3){s.x-=60;s.y-=60;s.w=120;s.h=120}
@@ -441,11 +521,29 @@ svg.addEventListener('pointercancel',endDrag);
 svg.addEventListener('wheel',e=>{e.preventDefault();const p=pt(e);zoomAt(e.deltaY>0?1.12:1/1.12,p.x,p.y)},{passive:false});
 
 /* ---------- selection & actions ---------- */
-function select(id){selId=id;drawSel();sync()}
-function setTool(t){tool=t;svg.className.baseVal=t==='select'?'':'draw';if(t!=='select')select(null);sync()}
+function select(id){if(id!==selId)selNode=null;selId=id;drawSel();sync()}
+function finishBez(){
+  const s=shapes.find(q=>q.id===bezId);bezId=null;bezHover=null;
+  if(s&&s.nodes.length<2){shapes=shapes.filter(q=>q!==s);selId=null}
+  render();commit();
+}
+function toggleSmooth(i){
+  const s=cur();if(!s||s.type!=='bez')return;
+  const N=s.nodes,n=N[i];
+  if(n.hi||n.ho){n.hi=null;n.ho=null}
+  else{
+    const prev=N[i-1]||(s.closed?N[N.length-1]:null),next=N[i+1]||(s.closed?N[0]:null);
+    const a=prev||n,b=next||n;let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+    const len=d/4||30;dx/=d;dy/=d;
+    n.hi=prev?[n.x-dx*len,n.y-dy*len]:null;n.ho=next?[n.x+dx*len,n.y+dy*len]:null;
+  }
+  selNode=i;render();commit();
+}
+function setTool(t){if(bezId&&t!=='bez')finishBez();tool=t;svg.className.baseVal=t==='select'?'':'draw';if(t!=='select')select(null);sync()}
 function act(name){
   const s=cur();if(!s)return;
   const i=shapes.indexOf(s);
+  if(name==='del'&&s.type==='bez'&&selNode!=null&&s.nodes.length>2){s.nodes.splice(selNode,1);selNode=null;render();commit();return}
   if(name==='del'){shapes.splice(i,1);selId=null}
   if(name==='dup'){const c=mapShape(s,(x,y)=>[x+20,y+20]);c.id=uid();shapes.push(c);selId=c.id}
   if(name==='front'){shapes.splice(i,1);shapes.push(s)}
@@ -453,7 +551,8 @@ function act(name){
   render();commit();
 }
 ['del','dup','front','back'].forEach(n=>$('#'+n).onclick=()=>act(n));
-$('#undo').onclick=undo;$('#redo').onclick=redo;
+$('#undo').onclick=undo;
+$('#bezDone').onclick=()=>{if(bezId)finishBez()};$('#redo').onclick=redo;
 $('#zIn').onclick=()=>zoomAt(1/1.25,vb.x+vb.w/2,vb.y+vb.h/2);
 $('#zOut').onclick=()=>zoomAt(1.25,vb.x+vb.w/2,vb.y+vb.h/2);
 $('#zFit').onclick=fit;
@@ -496,7 +595,13 @@ function sync(){
   $('#sw').value=src.stroke==='none'?0:src.sw;$('#swNum').textContent=$('#sw').value;
   const tf=$('#tField');const isText=!!s&&s.type==='text';tf.hidden=!isText;
   if(isText&&document.activeElement!==tf)tf.value=s.text;
-  ['del','dup','front','back'].forEach(n=>$('#'+n).disabled=!s);
+  ['del','dup','front','back'].forEach(n=>$('#'+n).disabled=!s||!!bezId);
+  const editing=!bezId&&s&&s.type==='bez'&&tool==='select';
+  $('#bezBar').hidden=!(bezId||(tool==='bez')||editing);
+  $('#bezDone').hidden=!bezId;
+  $('#bezTip').textContent=bezId?'แตะเพื่อเพิ่มจุด · ลากเพื่อดัดโค้ง · แตะจุดแรกเพื่อปิดรูป'
+    :editing?(selNode!=null?'ลากจุดหรือก้านเพื่อดัด · แตะจุดสองครั้งสลับมุม/โค้ง · ถังขยะลบจุดนี้':'ลากจุดหรือก้านเพื่อดัดโค้ง · แตะจุดสองครั้งสลับมุม/โค้ง')
+    :'แตะเพื่อวางจุดแรก ลากเพื่อดึงก้านโค้ง';
   $('#undo').disabled=hi<=0;$('#redo').disabled=hi>=hist.length-1;
   renderSwatches();
 }
@@ -513,6 +618,8 @@ window.addEventListener('keydown',e=>{
   if(mod&&key==='z'){e.preventDefault();e.shiftKey?redo():undo();return}
   if(mod&&key==='y'){e.preventDefault();redo();return}
   if(mod&&key==='d'){e.preventDefault();act('dup');return}
+  if(bezId&&(e.key==='Enter'||e.key==='Escape')){finishBez();return}
+  if(bezId&&(e.key==='Delete'||e.key==='Backspace')){const s=cur();if(s){s.nodes.pop();if(!s.nodes.length){shapes=shapes.filter(q=>q!==s);bezId=null;selId=null}render();sync()}return}
   if(e.key==='Delete'||e.key==='Backspace'){act('del');return}
   if(e.key==='Escape'){select(null);setTool('select');return}
   if(e.key===' '){spaceDown=true;svg.classList.add('pan');e.preventDefault();return}
