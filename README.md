@@ -1,4 +1,4 @@
-# Penline
+# Penline (เป็นไลน์ไหม)
 
 โปรแกรมวาดเวกเตอร์แบบเรียบง่าย เบา และเร็ว ได้แรงบันดาลใจจาก Inkscape แต่ตัดฟีเจอร์ระดับมืออาชีพออก ออกแบบแบบ mobile-first และติดตั้งเป็นแอป (PWA) ได้
 
@@ -36,7 +36,7 @@ repo นี้มี workflow ที่ `.github/workflows/pages.yml` อยู�
 
 1. ไปที่ **Settings → Pages**
 2. ตั้ง **Source** เป็น **GitHub Actions**
-3. push เข้า `main` แล้วแอปจะขึ้นที่ `https://<username>.github.io/penline/`
+3. push เข้า `main` แล้วแอปจะขึ้นที่ `https://larbkoystudio.github.io/pen-line-mai/`
 
 ## ติดตั้งบนมือถือ
 
