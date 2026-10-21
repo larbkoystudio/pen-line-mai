@@ -97,6 +97,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px soli
 .dock>*{pointer-events:auto}
 .ctx{display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:4px;box-shadow:0 2px 10px rgba(15,30,28,.12);max-width:100%}
 .ctx .tfield{flex:1 1 100%;max-width:none;margin:2px 2px 4px}
+.pagebar{flex-direction:column;align-items:stretch;gap:8px;padding:10px;width:min(360px,100%)}
+.prow{display:flex;align-items:center;gap:8px;min-width:0}
+.prow label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);flex:1;min-width:0}
+.prow input,.prow select{height:38px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);font:inherit;font-size:16px;padding:0 8px;min-width:0}
+.prow input{width:100%;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.prow select{flex:1;font-size:14px}
+.prow .x{color:var(--muted);flex:none}
+.plabel{fill:var(--accent);font-family:var(--mono);pointer-events:none}
 .pop{position:absolute;z-index:6;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 32px rgba(15,30,28,.2);padding:14px;display:flex;flex-direction:column;gap:12px;width:min(320px, calc(100% - 24px));max-height:calc(100% - 96px);overflow:auto}
 .pop-color{top:74px;left:max(12px, env(safe-area-inset-left, 0px))}
 .pop-layers{top:74px;right:max(12px, env(safe-area-inset-right, 0px))}
@@ -206,6 +214,18 @@ textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-ra
 
     <div class="dock">
       <div class="bezbar" id="bezBar" hidden><span class="tip" id="bezTip"></span><button class="txtbtn primary" id="bezDone">เสร็จ</button></div>
+      <div class="ctx pagebar" id="pageBar" hidden>
+        <div class="prow">
+          <label>กว้าง<input id="pgW" type="number" inputmode="numeric" min="16" max="8000" step="1"></label>
+          <span class="x">×</span>
+          <label>สูง<input id="pgH" type="number" inputmode="numeric" min="16" max="8000" step="1"></label>
+          <button class="ib" id="pgSwap" title="สลับแนวตั้ง/แนวนอน" aria-label="สลับแนวตั้งและแนวนอน"><svg viewBox="0 0 24 24"><path d="M7 4L4 7l3 3M4 7h13M17 14l3 3-3 3M20 17H7"/></svg></button>
+        </div>
+        <div class="prow">
+          <select id="pgPreset" aria-label="ขนาดสำเร็จรูป"></select>
+          <button class="txtbtn" id="pgFit">พอดีกับภาพ</button>
+        </div>
+      </div>
       <div class="ctx" id="ctxBar" hidden>
         <input class="tfield" id="tField" type="text" placeholder="พิมพ์ข้อความ" hidden aria-label="แก้ข้อความ">
         <button class="btn" id="dup" title="ทำสำเนา (Ctrl+D)" aria-label="ทำสำเนา"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>
@@ -291,7 +311,11 @@ textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-ra
 const $=s=>document.querySelector(s);
 const svg=$('#cv'), G=$('#shapes'), UI=$('#ui');
 const COARSE=matchMedia('(pointer:coarse)').matches;
-const W=800,H=600, FONT="IBM Plex Sans Thai, system-ui, sans-serif";
+let W=800,H=600; const FONT="IBM Plex Sans Thai, system-ui, sans-serif";
+const PAGES=[
+  ['เริ่มต้น',800,600],['A4 แนวตั้ง',794,1123],['A4 แนวนอน',1123,794],['สี่เหลี่ยมจัตุรัส',1080,1080],
+  ['โพสต์แนวตั้ง 4:5',1080,1350],['สตอรี่ 9:16',1080,1920],['จอกว้าง 16:9',1920,1080],['ไอคอน',512,512],
+];
 const PRESETS=[
   {name:'พื้นฐาน',c:['#1f2933','#ffffff','#e63946','#f4a261','#f2c94c','#2a9d8f','#3a86ff','#8338ec']},
   {name:'พาสเทล',c:['#ffadad','#ffd6a5','#fdffb6','#caffbf','#9bf6ff','#a0c4ff','#bdb2ff','#ffc6ff']},
@@ -306,8 +330,9 @@ const TOOLS=[
   ['bez','ปากกาเส้นโค้ง (B)','<path d="M12 3l5 7-2 8H9l-2-8z"/><path d="M12 3v7.5"/><circle cx="12" cy="12" r="1.2"/>'],
   ['pen','ดินสอ (P)','<path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/>'],
   ['text','ข้อความ (T)','<path d="M6 6h12M12 6v13"/>'],
+  ['page','ขนาดหน้า (K)','<path d="M7 3v4M3 7h4M17 21v-4M21 17h-4"/><rect x="7" y="7" width="10" height="10"/>'],
 ];
-const KEYS={b:'bez',v:'select',r:'rect',e:'ellipse',l:'line',p:'pen',t:'text'};
+const KEYS={k:'page',b:'bez',v:'select',r:'rect',e:'ellipse',l:'line',p:'pen',t:'text'};
 
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null}catch(e){return null}}
 function store(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -332,13 +357,17 @@ let shapes=Array.isArray(docRaw)?docRaw:(docRaw&&docRaw.shapes)||sample();
 let layers=(docRaw&&!Array.isArray(docRaw)&&docRaw.layers&&docRaw.layers.length)?docRaw.layers:[{id:'L1',name:'เลเยอร์ 1',visible:true,locked:false}];
 shapes.forEach(s=>{if(!layers.some(l=>l.id===s.layer))s.layer=layers[0].id});
 let activeLayer=layers[layers.length-1].id;
-const snap=()=>JSON.stringify({shapes,layers});
-const saveDoc=()=>store('penline.doc',{shapes,layers});
-function restore(j){const d=JSON.parse(j);shapes=d.shapes;layers=d.layers;if(!layers.some(l=>l.id===activeLayer))activeLayer=layers[layers.length-1].id}
+if(docRaw&&docRaw.page){W=docRaw.page.w||W;H=docRaw.page.h||H}
+const snap=()=>JSON.stringify({shapes,layers,page:{w:W,h:H}});
+const saveDoc=()=>store('penline.doc',{shapes,layers,page:{w:W,h:H}});
+function restore(j){const d=JSON.parse(j);shapes=d.shapes;layers=d.layers;if(d.page){W=d.page.w;H=d.page.h;updateBoard()}if(!layers.some(l=>l.id===activeLayer))activeLayer=layers[layers.length-1].id}
+function updateBoard(){const b=$('#board');b.setAttribute('width',W);b.setAttribute('height',H)}
+const clampPx=v=>Math.max(16,Math.min(8000,Math.round(+v||0)));
+function setPage(w,h){W=clampPx(w);H=clampPx(h);updateBoard();render();sync()}
 let style=load('penline.style')||{fill:'#f4a261',stroke:'#1f2933',sw:3};
 let bezId=null, bezHover=null, selNode=null, lastTap={i:-1,t:0};
 let target='fill', tool='select', selId=null, drag=null, spaceDown=false;
-let vb={x:-40,y:-40,w:W+80,h:H+80};
+let vb={x:0,y:0,w:W,h:H};
 let hist=[snap()], hi=0;
 
 /* ---------- rendering ---------- */
@@ -385,6 +414,14 @@ const cur=()=>shapes.find(s=>s.id===selId)||null;
 const layerOf=s=>layers.find(l=>l.id===s.layer);
 function bboxOf(s){const el=G.querySelector(`[data-id="${s.id}"] > :first-child`);if(!el)return null;const b=el.getBBox();return {x:b.x,y:b.y,w:b.width,h:b.height}}
 function drawSel(){
+  if(tool==='page'){
+    const K=k(),hs=(COARSE?22:12)*K;
+    let o=`<rect class="selbox" x="0" y="0" width="${W}" height="${H}" stroke-width="${1.6*K}" stroke-dasharray="${6*K} ${4*K}"/>`;
+    [['e',W,H/2,'ew-resize'],['s',W/2,H,'ns-resize'],['se',W,H,'nwse-resize']].forEach(([n,x,y,c])=>{
+      o+=`<rect class="hnd" data-ph="${n}" style="cursor:${c}" x="${x-hs/2}" y="${y-hs/2}" width="${hs}" height="${hs}" rx="${hs/2}" stroke-width="${1.6*K}"/>`});
+    o+=`<text class="plabel" x="${W/2}" y="${H+30*K}" text-anchor="middle" font-size="${13*K}">${W} × ${H}</text>`;
+    UI.innerHTML=o;return;
+  }
   const s=cur();if(!s){UI.innerHTML='';return}
   const b=bboxOf(s);if(!b){UI.innerHTML='';return}
   const K=k(),p=6*K,hs=(COARSE?22:11)*K,x=b.x-p,y=b.y-p,w=b.w+2*p,h=b.h+2*p;
@@ -410,7 +447,7 @@ function drawSel(){
 /* ---------- view ---------- */
 function k(){const b=svg.getBoundingClientRect();return Math.max(vb.w/(b.width||1),vb.h/(b.height||1))||1}
 function setVB(){svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);$('#zFit').textContent=Math.round(100/k())+'%';render()}
-function fit(){vb={x:-40,y:-40,w:W+80,h:H+80};setVB()}
+function fit(){const p=Math.max(W,H)*.06;vb={x:-p,y:-p,w:W+2*p,h:H+2*p};setVB()}
 function zoomAt(f,cx,cy){
   const nw=vb.w*f;if(nw<40||nw>8000)return;
   vb.x=cx-(cx-vb.x)*f;vb.y=cy-(cy-vb.y)*f;vb.w*=f;vb.h*=f;setVB();
@@ -445,6 +482,7 @@ function startPinch(){
     if(drag.mode==='draw'){shapes=shapes.filter(q=>q.id!==selId);selId=null}
     else if(drag.mode==='bezpull'){const s=shapes.find(q=>q.id===bezId);if(s){s.nodes.pop();if(!s.nodes.length){shapes=shapes.filter(q=>q!==s);bezId=null;selId=null}}}
     else if(['move','resize','node','handle'].includes(drag.mode)&&drag.orig){replace(drag.orig)}
+    else if(drag.mode==='page'){setPage(drag.w0,drag.h0)}
   }
   const [a,b]=[...ptrs.values()],R=svg.getBoundingClientRect(),K=k();
   const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
@@ -470,6 +508,11 @@ svg.addEventListener('pointerdown',e=>{
   if(ptrs.size>2)return;
   const p=pt(e);
   if(e.button===1||spaceDown){drag={mode:'pan',cx:e.clientX,cy:e.clientY,vb:{...vb},K:k()};return}
+  if(tool==='page'){
+    const ph=e.target.closest('[data-ph]');
+    if(ph){drag={mode:'page',h:ph.dataset.ph,start:p,w0:W,h0:H};return}
+    drag={mode:'pan',cx:e.clientX,cy:e.clientY,vb:{...vb},K:k()};return;
+  }
   if(tool==='select'){
     const hd=e.target.closest('[data-hd]');
     if(hd&&cur()){const [i,wh]=hd.dataset.hd.split(':');drag={mode:'handle',i:+i,wh,orig:clone(cur())};return}
@@ -517,6 +560,12 @@ svg.addEventListener('pointermove',e=>{
   if(!drag){if(bezId&&e.pointerType==='mouse'){bezHover=pt(e);drawSel()}return}
   if(drag.mode==='pinch'){if(ptrs.size>=2)movePinch();return}
   if(drag.mode==='pan'){vb.x=drag.vb.x-(e.clientX-drag.cx)*drag.K;vb.y=drag.vb.y-(e.clientY-drag.cy)*drag.K;svg.setAttribute('viewBox',`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);return}
+  if(drag.mode==='page'){
+    const p=pt(e),d=drag;d.changed=true;
+    W=clampPx(d.h.includes('e')?d.w0+(p.x-d.start.x):d.w0);
+    H=clampPx(d.h.includes('s')?d.h0+(p.y-d.start.y):d.h0);
+    updateBoard();drawSel();$('#pgW').value=W;$('#pgH').value=H;return;
+  }
   const p=pt(e),s=cur();if(!s)return;
   if(drag.mode==='bezpull'){
     const n=s.nodes[s.nodes.length-1];
@@ -579,7 +628,7 @@ function endDrag(e){
   if(drag.mode==='pinch'){if(ptrs.size===0){drag=null;setVB()}return}
   const d=drag;drag=null;
   if(d.mode==='pan'){setVB();return}
-  if(['move','resize','node','handle'].includes(d.mode)&&d.changed){commit();return}
+  if(['move','resize','node','handle','page'].includes(d.mode)&&d.changed){commit();return}
   if(d.mode==='bezpull'){render();sync();return}
   if(d.mode==='draw'){
     const s=cur();if(!s)return;
@@ -611,7 +660,7 @@ function toggleSmooth(i){
   }
   selNode=i;render();commit();
 }
-function setTool(t){if(bezId&&t!=='bez')finishBez();tool=t;svg.className.baseVal=t==='select'?'':'draw';if(t!=='select')select(null);sync()}
+function setTool(t){if(bezId&&t!=='bez')finishBez();tool=t;svg.className.baseVal=(t==='select'||t==='page')?'':'draw';if(t!=='select')select(null);sync();drawSel()}
 function act(name){
   const s=cur();if(!s)return;
   const i=shapes.indexOf(s);
@@ -673,6 +722,12 @@ function sync(){
   if(isText&&document.activeElement!==tf)tf.value=s.text;
   ['del','dup','front','back'].forEach(n=>$('#'+n).disabled=!s||!!bezId);
   $('#ctxBar').hidden=!s||!!bezId;
+  $('#pageBar').hidden=tool!=='page';
+  if(tool==='page'){
+    if(document.activeElement!==$('#pgW'))$('#pgW').value=W;
+    if(document.activeElement!==$('#pgH'))$('#pgH').value=H;
+    const m=PAGES.findIndex(q=>q[1]===W&&q[2]===H);$('#pgPreset').value=m<0?'':String(m);
+  }
   const editing=!bezId&&s&&s.type==='bez'&&tool==='select';
   $('#bezBar').hidden=!(bezId||(tool==='bez')||editing);
   $('#bezDone').hidden=!bezId;
@@ -797,7 +852,7 @@ $('#palBtn').onclick=()=>{closePops();renderPalDlg();$('#hexMsg').textContent=''
 function exportSVG(){return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}" fill="#ffffff"/>${layers.filter(L=>L.visible).map(L=>`<g data-layer="${esc(L.name)}">${shapes.filter(s=>s.layer===L.id).map(markup).join('')}</g>`).join('')}</svg>`}
 $('#fileBtn').onclick=()=>{
   const s=exportSVG();$('#svgOut').value=s;$('#copyMsg').textContent='';
-  const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=W*2;c.height=H*2;const x=c.getContext('2d');x.scale(2,2);x.drawImage(img,0,0);try{$('#pngOut').src=c.toDataURL('image/png')}catch(e){$('#pngOut').src=img.src}};
+  const img=new Image();img.onload=()=>{const c=document.createElement('canvas');const sc=Math.min(2,4096/Math.max(W,H));c.width=Math.round(W*sc);c.height=Math.round(H*sc);const x=c.getContext('2d');x.scale(sc,sc);x.drawImage(img,0,0);try{$('#pngOut').src=c.toDataURL('image/png')}catch(e){$('#pngOut').src=img.src}};
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(s);
   resetNew();openDlg('#fileDlg');
 };
@@ -814,7 +869,23 @@ $('#newDoc').onclick=()=>{
 };
 
 window.addEventListener('resize',()=>setVB());
-setVB();sync();
+/* ---------- page size ---------- */
+$('#pgPreset').innerHTML='<option value="">ขนาดสำเร็จรูป…</option>'+PAGES.map((q,i)=>`<option value="${i}">${q[0]} · ${q[1]}×${q[2]}</option>`).join('');
+$('#pgPreset').addEventListener('change',e=>{const q=PAGES[+e.target.value];if(!e.target.value||!q)return;setPage(q[1],q[2]);fit();commit()});
+['#pgW','#pgH'].forEach(id=>$(id).addEventListener('change',()=>{setPage($('#pgW').value,$('#pgH').value);fit();commit()}));
+['#pgW','#pgH'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')e.target.blur()}));
+$('#pgSwap').onclick=()=>{setPage(H,W);fit();commit()};
+$('#pgFit').onclick=()=>{
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  shapes.forEach(s=>{const L=layerOf(s);if(!L||!L.visible)return;const b=bboxOf(s);if(!b)return;const h=(s.stroke==='none'?0:s.sw)/2;
+    x0=Math.min(x0,b.x-h);y0=Math.min(y0,b.y-h);x1=Math.max(x1,b.x+b.w+h);y1=Math.max(y1,b.y+b.h+h)});
+  if(!isFinite(x0)){toast('ยังไม่มีภาพให้ปรับขนาดตาม');return}
+  const pad=16,dx=pad-x0,dy=pad-y0;
+  shapes=shapes.map(s=>mapShape(s,(x,y)=>[x+dx,y+dy]));
+  setPage(Math.ceil(x1-x0+pad*2),Math.ceil(y1-y0+pad*2));fit();commit();
+};
+
+updateBoard();fit();sync();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>drawSel());
 
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
